@@ -1,1 +1,235 @@
+# [KB] 네이버 카페 크롤러 with 키워드 입력_게시판지정_날짜지정
+# 제목, 본문, 댓글, 날짜, 검색 키워드, 게시판 이름 - 빈 list 생성
+titles = []
+reviews = []
+comments = []
+dates = []
+search_keywords = []
+board_titles = []
 
+board = ['//*[@id="menuLink90"]'] # 크롤링할 게시판의 xpath 입력; 원하는 게시판 클릭 -> F12 눌러 게시판 선택자 확인 가능
+
+# 네이버 카페 접속
+# 로그인한 네이버 계정이 해당 카페-게시판에 접근 권한이 있어야 합니다.(회원가입 & 등업)
+# 프레임 전환(네이버 카페는 여러 프레임으로 구성되어서 크롤링할 게시글이 있는 프레임으로 전환해주어야 함)
+
+time.sleep(random.uniform(1,1.7))
+url = 'https://cafe.naver.com/soho' # 크롤링할 카페 url 입력
+driver.get(url)
+time.sleep(1)
+
+
+time.sleep(1)
+for k in keywords:
+    for i in board:
+        #원하는 게시판 클릭
+        driver.find_element_by_xpath('%s'%i).click()
+        time.sleep(1)
+        driver.switch_to.frame('cafe_main') # 프레임 전환
+
+        #검색
+        search_box = driver.find_element(By.XPATH, '//*[@id="query"]')
+        search_box.send_keys(k)
+        search_box.send_keys(Keys.RETURN)
+        time.sleep(3)
+        # 3초간 대기 후 다음 코드 실행
+        #검색결과 없을 때 다음 게시판으로 넘어가도록
+        try:
+            if driver.find_element(By.XPATH, '//*[@id="main-area"]/div[5]/table/tbody/tr/td/div').text.strip() == '등록된 게시글이 없습니다.':
+                driver.get(url)
+                time.sleep(1)
+                continue
+
+        except:
+            pass
+        time_box = driver.find_element(By.XPATH, '//*[@id="currentSearchDateTop"]')
+        time_box.click()
+        start_time = driver.find_element(By.XPATH, '//*[@id="input_1_top"]')
+        start_time.click()
+        time.sleep(0.5)
+        start_time.send_keys(start_date)
+        time.sleep(1)
+        end_time = driver.find_element(By.XPATH, '//*[@id="input_2_top"]')
+        end_time.click()
+        time.sleep(0.5)
+        end_time.send_keys(end_date)
+        driver.find_element(By.XPATH, '//*[@id="btn_set_top"]').click()
+        time.sleep(1)
+
+
+
+
+        driver.find_element(By.XPATH, '//*[@id="main-area"]/div[1]/div[1]/form/div[4]/button').click()
+
+
+
+        try:
+            if driver.find_element(By.XPATH, '//*[@id="main-area"]/div[5]/table/tbody/tr/td/div').text.strip() == '등록된 게시글이 없습니다.':
+                driver.get(url)
+                time.sleep(1)
+                continue
+
+        except:
+            print("크롤링 시작합미당~")
+            pass
+
+        # 50개씩 보기
+        driver.find_element(By.XPATH, '//*[@id="listSizeSelectDiv"]/a').click()
+        driver.find_element(By.XPATH, '//*[@id="listSizeSelectDiv"]/ul/li[7]/a').click()
+
+        #url 가져오기
+        page_url_list = [a.get_attribute('href') for a in driver.find_elements_by_css_selector('a.article')]
+        first_page = driver.find_element_by_css_selector('a.on').get_attribute('href')
+        #페이지 넘기기 검색시 최대 100페이지
+        for j in range(1,101):
+            #400개마다 껐다 키기
+            try:
+                if j % 8 == 0:
+                    #다음 링크 가져오기
+                    time.sleep(1)
+                    link = first_page[:-1] + str(j)
+
+
+                    driver.quit()
+                    driver = webdriver.Chrome(ChromeDriverManager().install()) #현재 컴퓨터 크롬드라이버 위치로 변경
+
+
+                    ##재로그인
+                    # 네이버 로그인 화면 이동
+                    login_url = 'https://nid.naver.com/nidlogin.login?mode=form&url=https%3A%2F%2Fwww.naver.com'
+                    driver.get(login_url)
+                    driver.implicitly_wait(10)
+
+
+                    driver.execute_script("document.getElementsByName('id')[0].value = \'" + my_id + "\'")
+                    driver.execute_script("document.getElementsByName('pw')[0].value = \'" + my_pw + "\'")
+                    time.sleep(1)
+
+
+                    # '로그인' 버튼 클릭
+                    driver.find_element('id', 'log.login').click()
+                    time.sleep(1)
+
+                    #다음 링크부터 가져오기
+                    driver.get(link)
+                    driver.switch_to.frame('cafe_main')
+
+            except:
+                pass
+                #결과 없을 때 넘어가기
+            try:
+                if driver.find_element(By.XPATH, '//*[@id="main-area"]/div[5]/table/tbody/tr/td/div').text.strip() == '등록된 게시글이 없습니다.':
+                    break
+            except:
+                pass
+            if j == 1:
+                pass
+            else:
+                next_page = first_page[:-1] + str(j)
+                driver.get(next_page)
+                time.sleep(1)
+                driver.switch_to.frame('cafe_main')
+
+            page_url_list = [a.get_attribute('href') for a in driver.find_elements_by_css_selector('a.article')]
+
+
+            for url in page_url_list:
+                driver.get(url)
+                time.sleep(random.uniform(1,1.7))
+                driver.switch_to.frame('cafe_main')
+                try:
+                    #키워드 수집
+                    search_keywords.append(k)
+
+                    #게시판 이름 수집
+                    board_title = driver.find_element(By.CSS_SELECTOR, 'div.ArticleTitle').text
+                    board_titles.append(board_title)
+                    title = driver.find_element(By.CSS_SELECTOR, 'h3.title_text').text
+                    titles.append(title)
+
+                    #날짜 수집
+                    day = driver.find_element(By.CSS_SELECTOR, '#app > div > div > div.ArticleContentBox > div.article_header > div.WriterInfo > div.profile_area > div.article_info > span.date').text
+                    soup = bs(driver.page_source, 'lxml')
+                    isdate = soup.find_all('span',class_='date')
+                    dates.append(isdate)
+
+                except:
+                    continue
+                try:
+                    content = driver.find_element(By.CSS_SELECTOR, 'div.se-module.se-module-text').text
+                    reviews.append(content)
+                except:
+                    try:
+                        content = driver.find_element(By.CSS_SELECTOR, 'div.ContentRenderer').text
+                        reviews.append(content)
+                    except:
+                        try:
+                            content = driver.find_element(By.CSS_SELECTOR, 'div.scrap_added').text.strip()
+                            reviews.append(content)
+                        except:
+                            content= [] #게시물 본문이 사진으로만 구성되어있을때
+                            reviews.append(content)
+
+                # 댓글 수집
+                soup = bs(driver.page_source, 'lxml')
+                iscomment = soup.find_all('span',class_='text_comment')
+                if len(iscomment) == 0:
+                    box = []
+
+                else:
+                    WebDriverWait(driver, 15).until( EC.presence_of_all_elements_located((By.CLASS_NAME, "text_comment")) )
+
+                    soup = bs(driver.page_source, 'lxml')
+                    iscomment = soup.find_all('span',class_='text_comment')
+                    box = []
+                    for i in iscomment:
+                        box.append([i.get_text()])
+
+                comments.append(box)
+
+
+        url = 'https://cafe.naver.com/soho' # 크롤링할 카페 url 입력
+        driver.get(url)
+        time.sleep(1)
+
+# 크롬 창 닫기
+driver.quit()
+
+### 크롤링 개수 확인(키워드, 게시판, 제목, 본문, 댓글, 날짜)
+print(len(search_keywords))
+print(len(board_titles))
+print(len(titles))
+print(len(reviews))
+print(len(comments))
+print(len(dates))
+### 크롤링 데이터 합치기
+# 날짜 포멧 '2023.03.20.' 위 형태로 포맷
+import re
+
+formatted_dates = []
+#게시판 제목 포맷
+formatted_boards = []
+for board_title in board_titles:
+    formatted_boards.append(board_title.split("\n")[0])
+
+
+for date in [str(d[0]) for d in dates]:
+    date_str = re.search(r'\d{4}\.\d{2}\.\d{2}\.', date).group(0)
+    formatted_dates.append(date_str)
+
+# ===데이터 합치기===
+
+data = {'keyword' : search_keywords,
+        'board' : formatted_boards,
+        'tit' : titles,
+        'body' : reviews,
+        'comment' : comments,
+        'date': formatted_dates}
+
+dataDF = pd.DataFrame(data)
+### CSV 저장 & 데이터 확인
+dataDF
+
+#csv로 저장
+dataDF.to_csv(data_path, encoding = "utf-8-sig", index=False)
+dataDF
